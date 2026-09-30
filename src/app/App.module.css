@@ -1,0 +1,56 @@
+/*
+ * App.module.css — layout for the app shell.
+ * Desktop: viewport fills the left, fixed-width panel on the right.
+ * Narrow screens: panel stacks below the viewport.
+ */
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr var(--panel-width);
+  height: 100%;
+}
+
+.viewport {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  background: var(--color-viewport-bg);
+}
+
+.placeholder {
+  color: var(--color-text-muted);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-left: 1px solid var(--color-border);
+  background: var(--color-panel-bg);
+  overflow-y: auto;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+
+  .panel {
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+}

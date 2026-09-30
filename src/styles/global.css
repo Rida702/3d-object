@@ -1,0 +1,25 @@
+/*
+ * global.css — minimal reset and full-viewport sizing.
+ * Only truly global rules go here; component styles live in *.module.css files.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  background: var(--color-panel-bg);
+  -webkit-font-smoothing: antialiased;
+}
