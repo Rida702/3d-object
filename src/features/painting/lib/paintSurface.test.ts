@@ -43,6 +43,15 @@ describe('createPaintSurface', () => {
     ]);
   });
 
+  it('precomputes face areas and the total, with nothing painted yet', () => {
+    const surface = createPaintSurface(new BoxGeometry(1, 1, 1), WHITE);
+
+    expect(surface.faceAreas).toHaveLength(12);
+    expect(surface.faceAreas[0]).toBeCloseTo(0.5, 6);
+    expect(surface.totalArea).toBeCloseTo(6, 6);
+    expect(surface.paintedArea).toBe(0);
+  });
+
   it('computes the centroid of each triangle', () => {
     const geometry = trianglesGeometry([0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 6, 3, 0, 6]);
 

@@ -21,5 +21,7 @@ export function ProceduralCube() {
     [],
   );
 
-  return <PaintableMesh geometry={geometry} materialColor={CUBE.color} />;
+  return (
+    <PaintableMesh geometry={geometry} materialColor={CUBE.color} unitScale={CUBE.unitScale} />
+  );
 }

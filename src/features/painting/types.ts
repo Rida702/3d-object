@@ -29,6 +29,12 @@ export interface PaintSurface {
   faceCentroids: Float32Array;
   /** 1 = painted, 0 = not painted, one entry per face. */
   paintedMask: Uint8Array;
+  /** Area of each face in model units² (local space), precomputed once. */
+  faceAreas: Float32Array;
+  /** Sum of all face areas, model units². */
+  totalArea: number;
+  /** Running sum of painted face areas, model units² — updated incrementally by tools. */
+  paintedArea: number;
   /** Colour of unpainted faces (white = no tint over the material). */
   baseColor: Color;
   /** Scratch: faces under the brush for the current stroke step. */

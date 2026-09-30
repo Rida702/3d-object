@@ -6,6 +6,7 @@
  *   never children of the <Canvas>, so UI state changes don't re-render the 3D scene.
  */
 import { lazy, Suspense } from 'react';
+import { AreaReadout } from '@/features/measurement/components/AreaReadout';
 import { Toolbar } from '@/features/ui/components/Toolbar';
 import { LoadingOverlay } from '@/shared/components/LoadingOverlay';
 import styles from './App.module.css';
@@ -34,6 +35,7 @@ export function App() {
           drag to rotate, scroll to zoom, right-drag to pan.
         </p>
         <Toolbar />
+        <AreaReadout />
       </aside>
     </div>
   );

@@ -20,6 +20,8 @@ type PaintPointerOptions = {
   surface: PaintSurface;
   meshRef: RefObject<Mesh | null>;
   cursorRef: RefObject<Object3D | null>;
+  /** Called after every paint step (e.g. to publish the painted area). */
+  onPaint: () => void;
 };
 
 /** Pointer handlers to spread onto the paintable <mesh>. */
@@ -77,12 +79,14 @@ function placeCursor(cursor: Object3D, event: PaintEvent): void {
  * @param options.surface - Surface to paint
  * @param options.meshRef - The rendered mesh (for world → local conversion)
  * @param options.cursorRef - Brush cursor object to move with the pointer
+ * @param options.onPaint - Called after every paint step
  * @returns Handlers for the mesh
  */
 export function usePaintPointer({
   surface,
   meshRef,
   cursorRef,
+  onPaint,
 }: PaintPointerOptions): PaintPointerHandlers {
   const invalidate = useThree((state) => state.invalidate);
   const hitRef = useRef<PaintHit>({ point: new Vector3(), faceIndex: -1 });
@@ -95,6 +99,7 @@ export function usePaintPointer({
     const tool = getPaintTool(useAppStore.getState().activeToolId);
     tool.apply(surface, hitRef.current, readSettings());
     invalidate(); // frameloop is on-demand: request one frame to show the new colours
+    onPaint();
   };
 
   const captureHit = (event: PaintEvent) =>

@@ -101,7 +101,7 @@ in the root or in `src/`. If a new kind of file doesn't fit anywhere, update thi
 └── src/
     ├── main.tsx                  # React root mount. Nothing else.
     ├── app/                      # App shell: composition only, no business logic
-    │   ├── App.tsx               # Layout: lazy <Scene/> + <Toolbar/> + <InfoPanel/>
+    │   ├── App.tsx               # Layout: lazy <Scene/> + <Toolbar/> + <AreaReadout/>
     │   ├── Scene.tsx             # 3D composition: <Viewport><ModelStage/></Viewport> (lazy chunk)
     │   └── App.module.css
     │
@@ -119,7 +119,7 @@ in the root or in `src/`. If a new kind of file doesn't fit anywhere, update thi
     │   │
     │   ├── painting/             # HOW the surface is painted
     │   │   ├── components/       # PaintableMesh.tsx, BrushCursor.tsx
-    │   │   ├── hooks/            # usePaintPointer.ts, usePaintSurface.ts, usePaintModeShortcut.ts
+    │   │   ├── hooks/            # usePaintPointer, usePaintSurface, usePaintModeShortcut, useAreaSync
     │   │   ├── lib/              # paintSurface.ts, faceMask.ts, brushSelect.ts
     │   │   ├── tools/            # brushTool.ts, eraserTool.ts, index of tools (registry.ts)
     │   │   ├── config.ts         # Defaults, brush range, colours, tool labels (no three import)
@@ -131,13 +131,13 @@ in the root or in `src/`. If a new kind of file doesn't fit anywhere, update thi
     │   │   └── types.ts
     │   │
     │   └── ui/                   # App-level controls (toolbar, panels)
-    │       └── components/       # Toolbar.tsx, ColorPicker.tsx, BrushSizeSlider.tsx, InfoPanel.tsx
+    │       └── components/       # Toolbar.tsx, ColorPicker.tsx, BrushSizeSlider.tsx, ModelPicker.tsx
     │
     ├── store/                    # Global app state (zustand), split into slices
     │   ├── useAppStore.ts        # Combines slices; the ONLY store
     │   ├── paintSlice.ts         # active tool, color, brush radius, paint version
     │   ├── modelSlice.ts         # selected model id, loading status
-    │   └── measurementSlice.ts   # painted area, total area, unit
+    │   └── measurementSlice.ts   # painted area, total area (model units²), metres per unit
     │
     ├── shared/                   # Reusable, feature-agnostic code
     │   ├── components/           # Generic UI: Button.tsx, Slider.tsx, Panel.tsx, LoadingOverlay.tsx
@@ -598,8 +598,8 @@ paint/erase. Orbit is disabled while painting.
    - `const g = geometry.index ? geometry.toNonIndexed() : geometry.clone()`.
    - Add a `color` attribute filled with the base color (white = no tint over a texture).
    - `faceCount = position.count / 3`; allocate `paintedMask = new Uint8Array(faceCount)`.
-   - Precompute `faceCentroids` (Float32Array, 3 per face) in one loop. (Areas are added in Step 3
-     in the **same** loop — single-pass rule.)
+   - Precompute `faceCentroids` (Float32Array, 3 per face) in one loop. (Step 3 adds areas in a
+     separate pass via `measurement/lib` — see Step 3.)
 2. `selectFacesInRadius`: loop all centroids, compare squared distance to `radius²` (no `sqrt`),
    push into a pre-allocated `Uint32Array` scratch buffer. (Step 5 upgrades this to a BVH query.)
 3. `brushTool.apply`: select → `setFaces(mask, selected, 1, changed)` → `recolorFaces(selected, color)`
@@ -650,26 +650,36 @@ units (cm² / m²), updating live while painting.
 
 **Files.**
 
-- `measurement/lib/triangleArea.ts` — `triangleArea(a, b, c)` and `computeFaceAreas(geometry)` → `Float32Array`.
-- `measurement/lib/surfaceArea.ts` — `sumAreas(faceAreas, mask?)` (full recompute, used for verification/tests).
-- `measurement/lib/units.ts` — `toSquareMeters(area, unitScale, meshScale)`, `formatArea(m2)` → "12.4 cm²".
-- `measurement/components/AreaReadout.tsx` — reads from store via selectors.
-- `store/measurementSlice.ts` — `paintedArea`, `totalArea` (model units²), `unitScale`.
-- `ui/components/InfoPanel.tsx` — hosts `AreaReadout`.
-- Tests: `triangleArea.test.ts`, `surfaceArea.test.ts`, `units.test.ts`.
+- `measurement/lib/triangleArea.ts` — `triangleArea(a, b, c)` and `computeFaceAreas(positions, faceCount)` → `Float32Array`.
+- `measurement/lib/surfaceArea.ts` — `sumAreas(faceAreas, mask?)` (full recompute, reference/tests) and
+  `sumFaceAreas(faceAreas, faces, count)` (incremental). Plain arrays only, so measurement never
+  imports painting types (dependency points painting → measurement).
+- `measurement/lib/units.ts` — `toSquareMeters(area, metersPerUnit)`, `formatArea(m2)` → "12.4 cm²"
+  (m² from 1 m²), `formatPercent(part, total)`. Fixed `en-US` locale for stable output.
+- `measurement/components/AreaReadout.tsx` — reads from store via selectors; rendered by `App`.
+- `store/measurementSlice.ts` — `paintedArea`, `totalArea` (model units²), `metersPerUnit`
+  (model `unitScale` × mesh world scale); `setSurfaceAreas`, `setPaintedArea`, `resetAreas`.
+- `painting/hooks/useAreaSync.ts` — publishes areas on mount, resets on unmount, returns a throttled
+  `syncPaintedArea` that `usePaintPointer` calls after each paint step (`onPaint`).
+- `shared/lib/throttle.ts` — leading + trailing throttle (the trailing run publishes the final value).
+- `models/config.ts` — `CUBE.unitScale = 0.1` (10 cm cube); passed to `PaintableMesh` as `unitScale`.
+- ~~`ui/components/InfoPanel.tsx`~~ — dropped: `ui` may not render `measurement`'s components, so
+  `App` composes `AreaReadout` directly.
+- Tests: `triangleArea`, `surfaceArea`, `units`, `throttle`, `AreaReadout`, plus area cases in `brushTool`.
 
 **Implementation.**
 
-1. Extend `createPaintSurface` to compute `faceAreas` via `computeFaceAreas` in the same loop as
-   centroids; store `totalArea`.
-2. `faceMask.setFaces` already returns changed faces; tools now add/subtract
-   `faceAreas[f]` to `surface.paintedArea` for each changed face.
-3. After each stroke step, push `paintedArea` to the store — **throttled** (e.g. 10×/s) so the
-   readout updates smoothly without re-rendering every pointer event.
+1. `createPaintSurface` calls `computeFaceAreas` (a second pass, once per surface — keeping area
+   math in `measurement` beats fusing it into the centroid loop) and stores `totalArea`.
+2. `faceMask.setFaces` already returns changed faces; brush adds and eraser subtracts
+   `sumFaceAreas(changed)` from `surface.paintedArea` (eraser clamps at 0).
+3. After each stroke step, push `paintedArea` to the store — **throttled** to 10×/s
+   (`AREA_SYNC_INTERVAL_MS`) so the readout updates smoothly without re-rendering every pointer event.
 4. `AreaReadout` computes percent and formatted strings **during render** (derived, not stored).
-5. Use the mesh's world scale (`mesh.getWorldScale`) once at surface creation, not per stroke.
-6. Guard against floating-point drift: on pointer-up, optionally re-sum with `sumAreas` and replace
-   the running total (cheap for small meshes; configurable).
+5. Use the mesh's world scale (`mesh.getWorldScale`) once when the surface mounts (uniform scale assumed).
+6. Floating-point drift: running totals are JS doubles adding/subtracting the exact same float32
+   face areas, so drift is ~1e-12 — no pointer-up re-sum needed. A test checks incremental ==
+   `sumAreas(mask)` after mixed paint/erase strokes.
 
 **Acceptance criteria.**
 

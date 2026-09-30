@@ -7,6 +7,7 @@
 import type { StateCreator } from 'zustand';
 import { PAINT_DEFAULTS } from '@/features/painting/config';
 import type { PaintToolId } from '@/features/painting/types';
+import type { AppState } from './useAppStore';
 
 /** Paint state and its actions. */
 export interface PaintSlice {
@@ -32,7 +33,7 @@ export interface PaintSlice {
  * @param set - zustand setter
  * @returns Initial paint state and actions
  */
-export const createPaintSlice: StateCreator<PaintSlice> = (set) => ({
+export const createPaintSlice: StateCreator<AppState, [], [], PaintSlice> = (set) => ({
   activeToolId: PAINT_DEFAULTS.toolId,
   color: PAINT_DEFAULTS.color,
   brushRadius: PAINT_DEFAULTS.brushRadius,

@@ -5,12 +5,14 @@
  *   handlers or useFrame, which reads without subscribing (CLAUDE.md 4.5).
  */
 import { create } from 'zustand';
+import { createMeasurementSlice, type MeasurementSlice } from './measurementSlice';
 import { createPaintSlice, type PaintSlice } from './paintSlice';
 
-/** Full app state: the union of all slices. */
-export type AppState = PaintSlice;
+/** Full app state: the union of all slices. Slices type their creators against this. */
+export type AppState = PaintSlice & MeasurementSlice;
 
 /** The app store hook. */
 export const useAppStore = create<AppState>()((...args) => ({
   ...createPaintSlice(...args),
+  ...createMeasurementSlice(...args),
 }));

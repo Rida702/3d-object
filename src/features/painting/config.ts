@@ -34,6 +34,12 @@ export const PAINT_TOOL_OPTIONS: ReadonlyArray<{ id: PaintToolId; label: string 
   { id: 'eraser', label: 'Eraser' },
 ];
 
+/**
+ * How often (ms) the painted area is pushed to the store while dragging. 10×/s reads as live
+ * but re-renders the readout far less than once per pointer event.
+ */
+export const AREA_SYNC_INTERVAL_MS = 100;
+
 /** Brush cursor ring drawn on the surface under the pointer. */
 export const CURSOR = {
   color: '#00d1ff',
