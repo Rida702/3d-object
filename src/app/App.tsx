@@ -6,6 +6,7 @@
  *   never children of the <Canvas>, so UI state changes don't re-render the 3D scene.
  */
 import { lazy, Suspense } from 'react';
+import { Toolbar } from '@/features/ui/components/Toolbar';
 import { LoadingOverlay } from '@/shared/components/LoadingOverlay';
 import styles from './App.module.css';
 
@@ -29,9 +30,10 @@ export function App() {
       <aside className={styles.panel} aria-label="Tools and measurements">
         <h1 className={styles.title}>3D Object Painter</h1>
         <p className={styles.hint}>
-          Drag to rotate, scroll to zoom, right-drag to pan. Paint tools arrive in Step 2, area
-          readout in Step 3.
+          Turn on Paint mode (or hold Shift), then click or drag on the cube. With paint mode off:
+          drag to rotate, scroll to zoom, right-drag to pan.
         </p>
+        <Toolbar />
       </aside>
     </div>
   );

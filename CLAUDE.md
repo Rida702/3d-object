@@ -119,10 +119,11 @@ in the root or in `src/`. If a new kind of file doesn't fit anywhere, update thi
     │   │
     │   ├── painting/             # HOW the surface is painted
     │   │   ├── components/       # PaintableMesh.tsx, BrushCursor.tsx
-    │   │   ├── hooks/            # usePaintPointer.ts, usePaintSurface.ts
+    │   │   ├── hooks/            # usePaintPointer.ts, usePaintSurface.ts, usePaintModeShortcut.ts
     │   │   ├── lib/              # paintSurface.ts, faceMask.ts, brushSelect.ts
     │   │   ├── tools/            # brushTool.ts, eraserTool.ts, index of tools (registry.ts)
-    │   │   └── types.ts          # PaintTool, PaintHit, PaintSurface
+    │   │   ├── config.ts         # Defaults, brush range, colours, tool labels (no three import)
+    │   │   └── types.ts          # PaintTool, PaintHit, PaintSurface, FaceSelection
     │   │
     │   ├── measurement/          # WHAT we compute from the paint
     │   │   ├── components/       # AreaReadout.tsx
@@ -251,22 +252,23 @@ pointer event (R3F onPointerDown/Move)
 
 ### 4.4 Extension points (how to grow the project)
 
-| Want to add…                                             | Do this                                                                                     | Touch nothing else                 |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------- |
-| A new paint tool (fill-region, eraser, lasso)            | New file in `painting/tools/` implementing `PaintTool`; add to `painting/tools/registry.ts` | Toolbar reads from registry        |
-| A new model                                              | Drop `.glb` in `public/models/`, add an entry in `models/registry.ts`                       | Everything else is generic         |
-| A new measurement (perimeter, % coverage, cost estimate) | New pure function in `measurement/lib/`, new readout component                              | Painting untouched                 |
-| Multiple paint colors/layers                             | Change `paintedMask` from `Uint8Array` of 0/1 to layer ids                                  | Tools + measurement read by layer  |
-| Undo/redo                                                | Tools return a `PaintChange` (face ids + before/after); push to a history slice             | Tools already return changed faces |
-| Export painted region                                    | Pure function in `painting/lib/` that reads `paintedMask`                                   | —                                  |
+| Want to add…                                             | Do this                                                                                                                    | Touch nothing else                 |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| A new paint tool (fill-region, eraser, lasso)            | New file in `painting/tools/` implementing `PaintTool`; add to `painting/tools/registry.ts`; label in `painting/config.ts` | Toolbar reads `PAINT_TOOL_OPTIONS` |
+| A new model                                              | Drop `.glb` in `public/models/`, add an entry in `models/registry.ts`                                                      | Everything else is generic         |
+| A new measurement (perimeter, % coverage, cost estimate) | New pure function in `measurement/lib/`, new readout component                                                             | Painting untouched                 |
+| Multiple paint colors/layers                             | Change `paintedMask` from `Uint8Array` of 0/1 to layer ids                                                                 | Tools + measurement read by layer  |
+| Undo/redo                                                | Tools return a `PaintChange` (face ids + before/after); push to a history slice                                            | Tools already return changed faces |
+| Export painted region                                    | Pure function in `painting/lib/` that reads `paintedMask`                                                                  | —                                  |
 
 ```ts
 /** Contract every paint tool implements. */
 interface PaintTool {
   id: string;
   label: string;
-  /** Apply the tool at a hit point; returns the face indices that changed. */
-  apply(surface: PaintSurface, hit: PaintHit, settings: PaintSettings): Uint32Array;
+  /** Apply the tool at a hit point; returns the faces whose painted state changed
+   *  (a reusable FaceSelection — valid only until the next call). */
+  apply(surface: PaintSurface, hit: PaintHit, settings: PaintSettings): FaceSelection;
 }
 ```
 
@@ -338,7 +340,9 @@ export function PaintableMesh({ geometry, unitScale }: PaintableMeshProps) { …
 ### 5.3 TypeScript
 
 - `strict: true`, `noUncheckedIndexedAccess: true`, `noImplicitOverride: true`.
-- No `any`. Use `unknown` + narrowing. No non-null `!` except on R3F refs inside effects, with a comment.
+- No `any`. Use `unknown` + narrowing. No non-null `!` except (a) R3F refs inside effects, with a
+  comment, and (b) typed-array reads in hot loops whose bounds come from the loop header
+  (`noUncheckedIndexedAccess` types every `Float32Array[i]` as `number | undefined`).
 - Explicit return types on exported functions in `.ts` files (lint-enforced). Components in
   `.tsx` may infer their JSX return type.
 - Props typed with a named `type XProps = {…}` above the component.
@@ -576,10 +580,15 @@ paint/erase. Orbit is disabled while painting.
 - `painting/lib/brushSelect.ts` — `selectFacesInRadius(surface, point, radius)`.
 - `painting/tools/brushTool.ts`, `painting/tools/eraserTool.ts`, `painting/tools/registry.ts`.
 - `painting/hooks/usePaintSurface.ts` — builds the `PaintSurface` once per geometry (`useMemo`), disposes on change.
-- `painting/hooks/usePaintPointer.ts` — pointer down/move/up handlers; dragging flag in a ref; throttled.
+- `painting/hooks/usePaintPointer.ts` — pointer down/move/leave handlers; paints while
+  `event.buttons & 1`; coalesced to at most one paint per animation frame.
+- `painting/hooks/usePaintModeShortcut.ts` — holding Shift = temporary paint mode (off on keyup/blur).
+- `painting/config.ts` — defaults, brush range, colour presets, cursor, tool labels. `ui` may not
+  import `painting/tools/`, so the toolbar reads tool metadata from here.
 - `painting/components/PaintableMesh.tsx` — renders the mesh with the surface geometry and handlers.
 - `painting/components/BrushCursor.tsx` — a small ring at the hover point showing brush size.
-- `store/paintSlice.ts` — `activeToolId`, `color`, `brushRadius`, `isPaintMode`.
+- `store/paintSlice.ts` — `activeToolId`, `color`, `brushRadius`, `isPaintMode`, `isPaintModeHeld`,
+  plus derived `selectIsPainting` (toggle OR Shift). `store/useAppStore.ts` combines slices.
 - `ui/components/Toolbar.tsx`, `ColorPicker.tsx`, `BrushSizeSlider.tsx`; `shared/components/Button.tsx`, `Slider.tsx`.
 - Tests: `faceMask.test.ts`, `brushSelect.test.ts`, `paintSurface.test.ts`.
 
@@ -593,8 +602,10 @@ paint/erase. Orbit is disabled while painting.
      in the **same** loop — single-pass rule.)
 2. `selectFacesInRadius`: loop all centroids, compare squared distance to `radius²` (no `sqrt`),
    push into a pre-allocated `Uint32Array` scratch buffer. (Step 5 upgrades this to a BVH query.)
-3. `brushTool.apply`: select faces → `setFaces(mask, faces, 1)` → `recolorFaces(changed, color)`.
-   `eraserTool` sets 0 and restores base color.
+3. `brushTool.apply`: select → `setFaces(mask, selected, 1, changed)` → `recolorFaces(selected, color)`
+   — all selected faces, so painting over paint with a new colour updates it; only newly painted
+   faces are reported as changed. `eraserTool` sets 0 and restores the base colour on changed faces.
+   Brush selection always includes the hit face, so tiny brushes still paint on large triangles.
 4. `recolorFaces`: for each face `f`, write rgb to vertices `3f..3f+2`; track min/max changed
    index; call `colorAttr.addUpdateRange(min*3, (max-min+1)*3)`; `needsUpdate = true`.
 5. `usePaintPointer`:

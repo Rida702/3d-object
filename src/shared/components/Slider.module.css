@@ -1,0 +1,21 @@
+/*
+ * Slider.module.css — label and value on one row, full-width range input below.
+ */
+
+.slider {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+}
+
+.slider input {
+  width: 100%;
+  accent-color: var(--color-accent);
+}

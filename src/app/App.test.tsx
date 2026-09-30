@@ -27,7 +27,7 @@ describe('App', () => {
     const { App: ColdApp } = await import('./App');
     render(<ColdApp />);
 
-    expect(screen.getByRole('status')).toHaveTextContent('Loading 3D viewport…');
+    expect(screen.getByText('Loading 3D viewport…')).toHaveAttribute('role', 'status');
     expect(await screen.findByTestId('scene')).toBeInTheDocument();
   });
 });
