@@ -12,6 +12,11 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  build: {
+    // three.js alone is ~650 KB minified; it ships in the lazy Scene chunk, off the critical
+    // path. Warn only if that chunk grows well beyond three + R3F + drei.
+    chunkSizeWarningLimit: 1000,
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['src/test/setup.ts'],

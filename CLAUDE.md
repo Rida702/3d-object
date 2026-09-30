@@ -101,7 +101,8 @@ in the root or in `src/`. If a new kind of file doesn't fit anywhere, update thi
 └── src/
     ├── main.tsx                  # React root mount. Nothing else.
     ├── app/                      # App shell: composition only, no business logic
-    │   ├── App.tsx               # Layout: <Viewport/> + <Toolbar/> + <InfoPanel/>
+    │   ├── App.tsx               # Layout: lazy <Scene/> + <Toolbar/> + <InfoPanel/>
+    │   ├── Scene.tsx             # 3D composition: <Viewport><ModelStage/></Viewport> (lazy chunk)
     │   └── App.module.css
     │
     ├── features/                 # One folder per feature (vertical slices)
@@ -112,6 +113,7 @@ in the root or in `src/`. If a new kind of file doesn't fit anywhere, update thi
     │   ├── models/               # WHAT is displayed: cube or scanned model
     │   │   ├── components/       # ModelStage.tsx, ProceduralCube.tsx, ScannedModel.tsx
     │   │   ├── lib/              # prepareGeometry.ts, normalizeModel.ts
+    │   │   ├── config.ts         # Procedural model tunables (cube size, colour)
     │   │   ├── registry.ts       # List of available models (id, label, source, unit scale)
     │   │   └── types.ts          # ModelDefinition, ModelSource
     │   │
@@ -137,7 +139,7 @@ in the root or in `src/`. If a new kind of file doesn't fit anywhere, update thi
     │   └── measurementSlice.ts   # painted area, total area, unit
     │
     ├── shared/                   # Reusable, feature-agnostic code
-    │   ├── components/           # Generic UI: Button.tsx, Slider.tsx, Panel.tsx
+    │   ├── components/           # Generic UI: Button.tsx, Slider.tsx, Panel.tsx, LoadingOverlay.tsx
     │   ├── lib/                  # Generic helpers: math.ts, disposeObject.ts, throttle.ts
     │   ├── hooks/                # Generic hooks: useThrottledCallback.ts
     │   └── types/                # Global types shared by 2+ features
@@ -508,25 +510,27 @@ the user interacts.
 
 **Files.**
 
-- `features/viewer/components/Viewport.tsx` — `<Canvas>` with camera, `dpr`, frameloop; lazy-loaded from `App`.
+- `features/viewer/components/Viewport.tsx` — `<Canvas>` with camera, `dpr`, frameloop; renders `children`.
 - `features/viewer/components/SceneLights.tsx` — ambient + directional lights.
 - `features/viewer/components/CameraRig.tsx` — `OrbitControls` with damping and zoom limits.
 - `features/viewer/config.ts` — camera position, fov, min/max distance, auto-rotate speed.
 - `features/models/components/ProceduralCube.tsx` — `boxGeometry` + `meshStandardMaterial`.
 - `features/models/components/ModelStage.tsx` — decides which model to render (only the cube for now).
+- `features/models/config.ts` — cube size and colour.
+- `app/Scene.tsx` — composes `<Viewport><ModelStage/></Viewport>` (viewer may not import models' components).
+- `shared/components/LoadingOverlay.tsx` — Suspense fallback.
 
 **Implementation.**
 
-1. `App.tsx`: `const Viewport = lazy(() => import('@/features/viewer/components/Viewport'))`,
-   wrapped in `<Suspense fallback={<LoadingOverlay/>}>` (bundle-size rule 6.1.2).
-2. `Viewport`: `<Canvas camera={CAMERA} dpr={[1, 2]} frameloop="demand">` where `CAMERA` is a
-   module-level constant from `config.ts` (stable props rule 6.3).
-3. `CameraRig`: drei `<OrbitControls enableDamping autoRotate autoRotateSpeed={…} minDistance maxDistance makeDefault />`.
-   Auto-rotate stops on first interaction (`onStart` → set a ref, disable autoRotate).
-   With `frameloop="demand"`, damping and auto-rotate need frames: OrbitControls in drei calls
-   `invalidate` on change; for auto-rotate, keep `frameloop="always"` until interaction **or** use
-   `frameloop="demand"` and drive `invalidate()` from a small `useFrame`-free interval — document
-   whichever is chosen in `config.ts`.
+1. `App.tsx`: `const Scene = lazy(() => import('./Scene').then(m => ({ default: m.Scene })))`,
+   wrapped in `<Suspense fallback={<LoadingOverlay/>}>` (bundle-size rule 6.1.2). three/R3F/drei
+   land in the `Scene` chunk; `build.chunkSizeWarningLimit` is 1000 KB because three alone is ~650 KB.
+2. `Viewport`: `<Canvas camera={CAMERA} dpr={DPR} frameloop={INITIAL_FRAMELOOP}>` where all props
+   are module-level constants from `config.ts` (stable props rule 6.3).
+3. `CameraRig`: drei `<OrbitControls makeDefault enableDamping autoRotate … onStart>`.
+   **Chosen render-loop strategy:** start in `frameloop="always"` (auto-rotate needs every frame);
+   on the first `onStart`, set `autoRotate` off and call `setFrameloop('demand')`. From then on,
+   frames render only on `invalidate()` — OrbitControls invalidates on change, including damping.
 4. `SceneLights`: `ambientLight intensity≈0.5`, `directionalLight position=[5,5,5]`.
 5. `ProceduralCube`: `<mesh><boxGeometry args={[1,1,1]} /><meshStandardMaterial color="#ddd" /></mesh>`.
 6. Add drei `<Stats />` behind a dev-only flag (`import.meta.env.DEV`).

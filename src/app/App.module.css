@@ -10,16 +10,12 @@
   height: 100%;
 }
 
+/* Positioned so the loading overlay can cover it; the R3F canvas fills it at 100% × 100%. */
 .viewport {
   position: relative;
-  display: grid;
-  place-items: center;
   min-height: 0;
+  min-width: 0;
   background: var(--color-viewport-bg);
-}
-
-.placeholder {
-  color: var(--color-text-muted);
 }
 
 .panel {

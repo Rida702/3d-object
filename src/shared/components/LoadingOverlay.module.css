@@ -1,0 +1,12 @@
+/*
+ * LoadingOverlay.module.css — fills the nearest positioned ancestor and centres the message.
+ */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
