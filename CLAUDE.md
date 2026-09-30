@@ -53,7 +53,7 @@ Core ideas learned along the way:
 | Styling                          | **CSS Modules** + one global `tokens.css`                        | Scoped styles, zero runtime, no extra dependency                                                      |
 | Testing                          | **Vitest** (+ `@testing-library/react` for UI)                   | Same config as Vite; pure geometry math is unit-tested                                                |
 | Lint / format                    | **ESLint (flat config)** + **Prettier**                          | Enforces line limits, import boundaries, hooks rules                                                  |
-| Asset optimization               | **@gltf-transform/cli**                                          | Decimate, weld, compress (Draco/Meshopt) scanned models                                               |
+| Asset optimization               | **@gltf-transform** (core/functions) + meshoptimizer + sharp     | Weld, simplify, WebP textures for scanned models (`scripts/optimize-model.mjs`)                       |
 | Photogrammetry (offline)         | **Meshroom** (Windows, free) or **KIRI Engine** (Android, cloud) | Photos → textured mesh                                                                                |
 | Mesh cleanup (optional, offline) | **Blender**                                                      | Crop the floor, fill holes, decimate, set scale                                                       |
 
@@ -715,8 +715,11 @@ This step is mostly **offline work** — no app code except one optimization scr
 
 - `docs/scanning-guide.md` — the shooting + reconstruction checklist below.
 - `assets-src/scans/<object>/` — raw export (OBJ/GLB + textures).
-- `scripts/optimize-model.mjs` — runs gltf-transform on a raw file → `public/models/<object>.glb`.
+- `scripts/optimize-model.mjs` — raw `.glb/.gltf/.obj` → `public/models/<object>.glb`; prints size
+  and `unitScale`. Dev deps: `@gltf-transform/core|functions|extensions`, `meshoptimizer`, `sharp`
+  (WebP), `obj2gltf` (OBJ input).
 - `package.json` script: `"optimize-model": "node scripts/optimize-model.mjs"`.
+- Usage: `npm run optimize-model -- <input> <name> --real-size-cm <n> [--axis y] [--max-triangles 100000]`.
 
 **Implementation.**
 
@@ -727,17 +730,19 @@ This step is mostly **offline work** — no app code except one optimization scr
    - 60–80% overlap between consecutive photos; object fills most of the frame; don't move the object.
    - **Measure one real dimension** (e.g. mug height in cm) and write it down.
 2. **Reconstruct:**
-   - _Meshroom (Windows, needs an NVIDIA GPU for CUDA depth maps):_ drag photos in → Start →
-     wait → export from the `Texturing` node (OBJ + textures).
-   - _KIRI Engine (Android, cloud):_ photo scan mode → upload → download as GLB/OBJ.
-3. **Clean (optional, Blender):** delete the ground plane and floating bits, fill holes, apply
-   transforms, scale so the measured dimension is correct in meters (e.g. 0.095 for a 9.5 cm mug),
-   export GLB.
-4. **Optimize** with `scripts/optimize-model.mjs` (wrapping `@gltf-transform`):
-   `weld` → `simplify` (target ~100k triangles) → `resize` textures to 2048 → `webp` → `meshopt` or
-   `draco` → write to `public/models/`.
-5. Record the object's `unitScale` (1 if scaled to meters in Blender; otherwise measured-cm ÷
-   model-units) — used in Step 5.
+   - _KIRI Engine (phone app, cloud) — **primary route**; the dev laptop has Intel UHD only:_
+     Photo Scan → upload → export GLB (or OBJ).
+   - _Meshroom (Windows, needs an NVIDIA GPU for CUDA depth maps) — fallback:_ drag photos in →
+     Start → export from the `Texturing` node (OBJ + textures).
+3. **Clean (optional, Blender):** delete the ground plane and floating bits, export GLB. Scaling in
+   Blender is not needed — the script computes `unitScale` from the measurement.
+4. **Optimize** with `scripts/optimize-model.mjs`: `dedup` → `weld` → `simplify` (meshopt, target
+   ~100k triangles, error 1%) → `textureCompress` (WebP, max 2048 px) → `prune`.
+   **No quantization / meshopt / Draco geometry compression:** those store positions as quantized
+   integers plus a node transform, and the paint + area code needs plain float positions. Files
+   stay well under 10 MB without it (a 100k-triangle test model: 1.55 MB).
+5. Record `unitScale` = (real size in m) ÷ (model size along that axis) — the script prints it and
+   the implied real size on all three axes to cross-check against a ruler. Used in Step 5.
 
 **Acceptance criteria.**
 
@@ -748,8 +753,8 @@ This step is mostly **offline work** — no app code except one optimization scr
 
 **Pitfalls.** Reflective/transparent/featureless objects fail to reconstruct. Moving the object
 between photos. Too few top-down shots → hole on top. Meshroom without an NVIDIA GPU falls back to
-a much lower-quality draft mesh — use KIRI Engine instead. Draco-compressed files need the Draco
-decoder (drei `useGLTF` handles it; Meshopt is lighter).
+a much lower-quality draft mesh — use KIRI Engine instead. Quantized/compressed geometry breaks
+float-based paint and area math — the script deliberately doesn't compress geometry.
 
 ---
 
