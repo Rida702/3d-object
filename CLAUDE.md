@@ -82,6 +82,7 @@ in the root or in `src/`. If a new kind of file doesn't fit anywhere, update thi
 ├── .prettierrc
 ├── .prettierignore
 ├── .gitignore
+├── .gitattributes                # Forces LF line endings (matches Prettier)
 ├── index.html                    # Vite entry HTML (must stay in root — Vite requirement)
 │
 ├── docs/                         # All non-code documentation
