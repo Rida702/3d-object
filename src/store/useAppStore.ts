@@ -6,13 +6,15 @@
  */
 import { create } from 'zustand';
 import { createMeasurementSlice, type MeasurementSlice } from './measurementSlice';
+import { createModelSlice, type ModelSlice } from './modelSlice';
 import { createPaintSlice, type PaintSlice } from './paintSlice';
 
 /** Full app state: the union of all slices. Slices type their creators against this. */
-export type AppState = PaintSlice & MeasurementSlice;
+export type AppState = PaintSlice & MeasurementSlice & ModelSlice;
 
 /** The app store hook. */
 export const useAppStore = create<AppState>()((...args) => ({
   ...createPaintSlice(...args),
   ...createMeasurementSlice(...args),
+  ...createModelSlice(...args),
 }));

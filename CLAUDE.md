@@ -113,9 +113,8 @@ in the root or in `src/`. If a new kind of file doesn't fit anywhere, update thi
     │   ├── models/               # WHAT is displayed: cube or scanned model
     │   │   ├── components/       # ModelStage.tsx, ProceduralCube.tsx, ScannedModel.tsx
     │   │   ├── lib/              # prepareGeometry.ts, normalizeModel.ts
-    │   │   ├── config.ts         # Procedural model tunables (cube size, colour)
-    │   │   ├── registry.ts       # List of available models (id, label, source, unit scale)
-    │   │   └── types.ts          # ModelDefinition, ModelSource
+    │   │   ├── config.ts         # MODELS list (id, label, source, url, unitScale) + cube tunables
+    │   │   └── types.ts          # ModelDefinition (ProceduralModel | GltfModel)
     │   │
     │   ├── painting/             # HOW the surface is painted
     │   │   ├── components/       # PaintableMesh.tsx, BrushCursor.tsx
@@ -255,7 +254,7 @@ pointer event (R3F onPointerDown/Move)
 | Want to add…                                             | Do this                                                                                                                    | Touch nothing else                 |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | A new paint tool (fill-region, eraser, lasso)            | New file in `painting/tools/` implementing `PaintTool`; add to `painting/tools/registry.ts`; label in `painting/config.ts` | Toolbar reads `PAINT_TOOL_OPTIONS` |
-| A new model                                              | Drop `.glb` in `public/models/`, add an entry in `models/registry.ts`                                                      | Everything else is generic         |
+| A new model                                              | Drop `.glb` in `public/models/`, add an entry to `MODELS` in `models/config.ts`                                            | Everything else is generic         |
 | A new measurement (perimeter, % coverage, cost estimate) | New pure function in `measurement/lib/`, new readout component                                                             | Painting untouched                 |
 | Multiple paint colors/layers                             | Change `paintedMask` from `Uint8Array` of 0/1 to layer ids                                                                 | Tools + measurement read by layer  |
 | Undo/redo                                                | Tools return a `PaintChange` (face ids + before/after); push to a history slice                                            | Tools already return changed faces |
@@ -751,6 +750,13 @@ This step is mostly **offline work** — no app code except one optimization scr
 - The known real dimension, multiplied by `unitScale`, is correct within ~2%.
 - `docs/scanning-guide.md` lets someone else repeat the process.
 
+**Result (2026-10-01):** `crochet-flower.glb` — 11.3 MB, 213k triangles, `unitScale` 0.164279
+(height 4.3 in = 10.92 cm along y). Accepted as-is, slightly over the size/triangle targets: KIRI's
+texture atlas has so many UV seams that the simplifier can't merge further without tearing the
+texture. The scan also includes the ~39 × 38 cm cloth under the flower, so "Total surface" and
+"Coverage" include the cloth; painted area is still correct. Cropping (script option or Blender)
+is a later improvement if needed.
+
 **Pitfalls.** Reflective/transparent/featureless objects fail to reconstruct. Moving the object
 between photos. Too few top-down shots → hole on top. Meshroom without an NVIDIA GPU falls back to
 a much lower-quality draft mesh — use KIRI Engine instead. Quantized/compressed geometry breaks
@@ -763,6 +769,22 @@ float-based paint and area math — the script deliberately doesn't compress geo
 **Goal.** Choose between the cube and scanned model(s) from the UI. Painting and area measurement
 work on the scan exactly as on the cube — with real-world area in cm².
 
+**Split into four sub-steps** (each ends with something visible to check in the browser):
+
+| Sub-step                    | Scope                                                                                                                                                | Status |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **5a. Show the flower**     | `MODELS` list in `models/config.ts`, `modelSlice`, `ModelPicker`, `ScannedModel` (display only), `<Center>` + `<Bounds>` framing                     | Done   |
+| **5b. Paint on the flower** | `prepareGeometry` (merge meshes, bake transforms), `ScannedModel` → `PaintableMesh` with the scan's material + vertex colours; reset paint on switch | —      |
+| **5c. Make painting fast**  | `three-mesh-bvh`: accelerated raycast + BVH `shapecast` brush selection                                                                              | —      |
+| **5d. Finishing touches**   | Brush size in cm, `ErrorBoundary` for failed loads, `disposeObject` on model switch                                                                  | —      |
+
+5a decisions: the model list lives in `models/config.ts` (not a separate `registry.ts`) because
+`ui/ModelPicker` may only import another feature's `config.ts`/`types.ts`/`lib/` — same pattern
+as `PAINT_TOOL_OPTIONS`. `useGLTF.preload` runs at `ModelStage` module load (inside the lazy
+Scene chunk). `<Bounds key={model.id}>` remounts per model so the camera re-frames on every
+switch; `<Center>`/`<Bounds>` move objects/camera only, never rescale the mesh, so areas stay
+correct. `chunkSizeWarningLimit` raised to 1200 KB (glTF loader added ~90 KB).
+
 **Concepts.**
 
 - **glTF/GLB:** the "JPEG of 3D"; one binary file with meshes, materials and textures.
@@ -774,8 +796,9 @@ work on the scan exactly as on the cube — with real-world area in cm².
 
 **Files.**
 
-- `models/types.ts` — `ModelDefinition { id, label, source: 'procedural' | 'gltf', url?, unitScale }`.
-- `models/registry.ts` — array of definitions (cube + each scan); calls `useGLTF.preload` for each.
+- `models/types.ts` — `ModelDefinition = ProceduralModel | GltfModel` (`id, label, unitScale`, `url` for glTF).
+- `models/config.ts` — `MODELS` (cube + each scan), `CUBE_MODEL` fallback, `FRAMING_MARGIN`.
+- `models/components/ModelLoading.tsx` — drei `<Html>` "Loading model…" Suspense fallback inside the canvas.
 - `models/components/ScannedModel.tsx` — `useGLTF(url)`, extracts the mesh geometry + material, renders `PaintableMesh`.
 - `models/lib/prepareGeometry.ts` — merges multiple meshes if needed, bakes transforms, computes BVH.
 - `models/lib/normalizeModel.ts` — returns center offset + fit scale; the fit scale is folded into `meshScale` for area.

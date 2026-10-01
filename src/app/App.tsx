@@ -7,6 +7,7 @@
  */
 import { lazy, Suspense } from 'react';
 import { AreaReadout } from '@/features/measurement/components/AreaReadout';
+import { ModelPicker } from '@/features/ui/components/ModelPicker';
 import { Toolbar } from '@/features/ui/components/Toolbar';
 import { LoadingOverlay } from '@/shared/components/LoadingOverlay';
 import styles from './App.module.css';
@@ -31,9 +32,10 @@ export function App() {
       <aside className={styles.panel} aria-label="Tools and measurements">
         <h1 className={styles.title}>3D Object Painter</h1>
         <p className={styles.hint}>
-          Turn on Paint mode (or hold Shift), then click or drag on the cube. With paint mode off:
+          Turn on Paint mode (or hold Shift), then click or drag on the model. With paint mode off:
           drag to rotate, scroll to zoom, right-drag to pan.
         </p>
+        <ModelPicker />
         <Toolbar />
         <AreaReadout />
       </aside>

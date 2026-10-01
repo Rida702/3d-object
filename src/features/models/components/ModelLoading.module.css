@@ -1,0 +1,10 @@
+/*
+ * ModelLoading.module.css — muted, non-wrapping loading text over the canvas.
+ */
+
+.message {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}

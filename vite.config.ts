@@ -13,9 +13,9 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   build: {
-    // three.js alone is ~650 KB minified; it ships in the lazy Scene chunk, off the critical
-    // path. Warn only if that chunk grows well beyond three + R3F + drei.
-    chunkSizeWarningLimit: 1000,
+    // three.js alone is ~650 KB minified; with R3F, drei and the glTF loader the lazy Scene
+    // chunk is ~1 MB, off the critical path. Warn only if it grows well beyond that.
+    chunkSizeWarningLimit: 1200,
   },
   test: {
     environment: 'jsdom',
