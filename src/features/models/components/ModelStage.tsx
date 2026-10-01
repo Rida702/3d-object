@@ -30,7 +30,11 @@ type ModelContentProps = {
  * @param props.model - Model to render
  */
 function ModelContent({ model }: ModelContentProps) {
-  return model.source === 'gltf' ? <ScannedModel url={model.url} /> : <ProceduralCube />;
+  return model.source === 'gltf' ? (
+    <ScannedModel url={model.url} unitScale={model.unitScale} />
+  ) : (
+    <ProceduralCube />
+  );
 }
 
 /**

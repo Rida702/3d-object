@@ -34,6 +34,7 @@ export type PaintPointerHandlers = {
 // Module-level scratch objects, reused on every event (painting is synchronous).
 const settings: PaintSettings = { color: new Color(), radius: 0 };
 const worldNormal = new Vector3();
+const worldPosition = new Vector3();
 const lookTarget = new Vector3();
 
 /**
@@ -64,12 +65,18 @@ function copyHit(event: PaintEvent, mesh: Mesh, hit: PaintHit): boolean {
   return true;
 }
 
-/** Places the cursor ring on the surface at the hit point, facing along the surface normal. */
+/**
+ * Places the cursor ring on the surface at the hit point, facing along the surface normal.
+ * The event point is in WORLD space, but the cursor lives inside the model's (possibly
+ * moved, e.g. centred) parent group, so its position is converted to that parent's space.
+ */
 function placeCursor(cursor: Object3D, event: PaintEvent): void {
   if (!event.face) return;
   worldNormal.copy(event.face.normal).transformDirection(event.object.matrixWorld);
-  cursor.position.copy(event.point).addScaledVector(worldNormal, CURSOR.surfaceOffset);
-  cursor.lookAt(lookTarget.copy(cursor.position).add(worldNormal));
+  worldPosition.copy(event.point).addScaledVector(worldNormal, CURSOR.surfaceOffset);
+  cursor.position.copy(worldPosition);
+  cursor.parent?.worldToLocal(cursor.position);
+  cursor.lookAt(lookTarget.copy(worldPosition).add(worldNormal)); // lookAt takes world space
   cursor.visible = true;
 }
 

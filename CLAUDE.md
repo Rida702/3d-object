@@ -774,7 +774,7 @@ work on the scan exactly as on the cube — with real-world area in cm².
 | Sub-step                    | Scope                                                                                                                                                | Status |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | **5a. Show the flower**     | `MODELS` list in `models/config.ts`, `modelSlice`, `ModelPicker`, `ScannedModel` (display only), `<Center>` + `<Bounds>` framing                     | Done   |
-| **5b. Paint on the flower** | `prepareGeometry` (merge meshes, bake transforms), `ScannedModel` → `PaintableMesh` with the scan's material + vertex colours; reset paint on switch | —      |
+| **5b. Paint on the flower** | `prepareGeometry` (merge meshes, bake transforms), `ScannedModel` → `PaintableMesh` with the scan's material + vertex colours; reset paint on switch | Done   |
 | **5c. Make painting fast**  | `three-mesh-bvh`: accelerated raycast + BVH `shapecast` brush selection                                                                              | —      |
 | **5d. Finishing touches**   | Brush size in cm, `ErrorBoundary` for failed loads, `disposeObject` on model switch                                                                  | —      |
 
@@ -784,6 +784,18 @@ as `PAINT_TOOL_OPTIONS`. `useGLTF.preload` runs at `ModelStage` module load (ins
 Scene chunk). `<Bounds key={model.id}>` remounts per model so the camera re-frames on every
 switch; `<Center>`/`<Bounds>` move objects/camera only, never rescale the mesh, so areas stay
 correct. `chunkSizeWarningLimit` raised to 1200 KB (glTF loader added ~90 KB).
+
+5b decisions: `models/lib/prepareGeometry.ts` exports `prepareModel(scene)` → `{ geometry,
+material, meshCount }`: bakes each mesh's transform relative to the scene root (so the root's
+own placement is ignored), merges multiple meshes (non-indexed first), and clones the first
+material with `vertexColors = true`. It never mutates the cached `useGLTF` scene; `ScannedModel`
+disposes the clones on unmount (the shared texture is left alone). `PaintableMesh` takes either
+`materialColor` (cube) or a ready-made `material` (scan) — a typed union, one or the other.
+Paint is reset on model switch because the old `PaintableMesh` unmounts (its surface is
+disposed and `resetAreas` runs). Bug fixed: `placeCursor` now converts the world hit point into
+the cursor's parent space — under `<Center>` the parent is translated, which the cube (centred
+at the origin) never revealed. BVH is deliberately left to 5c: until then raycasts check all
+213k triangles on every pointer move. Flower total surface ≈ 1,663 cm² (mostly the cloth).
 
 **Concepts.**
 
