@@ -14,6 +14,13 @@ export const CAMERA = {
   far: 100,
 } as const satisfies CanvasProps['camera'];
 
+/**
+ * Raycaster settings. firstHitOnly (from three-mesh-bvh) makes BVH-accelerated meshes return
+ * only their nearest hit instead of every triangle along the ray — pointer events only ever
+ * use the front-most hit.
+ */
+export const RAYCASTER = { firstHitOnly: true } as const satisfies CanvasProps['raycaster'];
+
 /** Device-pixel-ratio range: sharp on retina, but capped at 2 to protect GPU fill rate. */
 export const DPR: [number, number] = [1, 2];
 

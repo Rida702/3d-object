@@ -139,8 +139,8 @@ in the root or in `src/`. If a new kind of file doesn't fit anywhere, update thi
     │   └── measurementSlice.ts   # painted area, total area (model units²), metres per unit
     │
     ├── shared/                   # Reusable, feature-agnostic code
-    │   ├── components/           # Generic UI: Button.tsx, Slider.tsx, Panel.tsx, LoadingOverlay.tsx
-    │   ├── lib/                  # Generic helpers: math.ts, disposeObject.ts, throttle.ts
+    │   ├── components/           # Generic UI: Button, Slider, LoadingOverlay, ErrorBoundary
+    │   ├── lib/                  # Generic helpers: disposeObject.ts (disposeMaterial), throttle.ts
     │   ├── hooks/                # Generic hooks: useThrottledCallback.ts
     │   └── types/                # Global types shared by 2+ features
     │
@@ -275,7 +275,7 @@ interface PaintTool {
 
 - **One store**, `store/useAppStore.ts`, built from slices (`paintSlice`, `modelSlice`,
   `measurementSlice`). Each slice file < 200 lines.
-- Components **always** read with a selector: `useAppStore(s => s.brushRadius)` — never
+- Components **always** read with a selector: `useAppStore(s => s.brushRadiusCm)` — never
   `useAppStore()` (that re-renders on every change).
 - Inside `useFrame` or event handlers, read with `useAppStore.getState()` — no subscription.
 - Store holds only **serializable, small** values. Buffers/meshes live in refs.
@@ -586,7 +586,7 @@ paint/erase. Orbit is disabled while painting.
   import `painting/tools/`, so the toolbar reads tool metadata from here.
 - `painting/components/PaintableMesh.tsx` — renders the mesh with the surface geometry and handlers.
 - `painting/components/BrushCursor.tsx` — a small ring at the hover point showing brush size.
-- `store/paintSlice.ts` — `activeToolId`, `color`, `brushRadius`, `isPaintMode`, `isPaintModeHeld`,
+- `store/paintSlice.ts` — `activeToolId`, `color`, `brushRadiusCm` (cm since 5d), `isPaintMode`, `isPaintModeHeld`,
   plus derived `selectIsPainting` (toggle OR Shift). `store/useAppStore.ts` combines slices.
 - `ui/components/Toolbar.tsx`, `ColorPicker.tsx`, `BrushSizeSlider.tsx`; `shared/components/Button.tsx`, `Slider.tsx`.
 - Tests: `faceMask.test.ts`, `brushSelect.test.ts`, `paintSurface.test.ts`.
@@ -612,7 +612,7 @@ paint/erase. Orbit is disabled while painting.
    - `onPointerMove`: if dragging, apply tool (throttled to ~every animation frame).
    - `onPointerUp` / `onPointerLeave`: clear ref.
    - After applying: `invalidate()`.
-   - Read `color`, `brushRadius`, tool via `useAppStore.getState()` (no re-render on pointer move).
+   - Read `color`, `brushRadiusCm`, tool via `useAppStore.getState()` (no re-render on pointer move).
 6. Paint mode: a toolbar toggle (and holding `Shift` as a shortcut). When on, `OrbitControls`
    `enabled={false}`.
 7. `BrushCursor`: position a ring mesh from a ref on hover; orient to the hit face normal.
@@ -775,8 +775,8 @@ work on the scan exactly as on the cube — with real-world area in cm².
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | **5a. Show the flower**     | `MODELS` list in `models/config.ts`, `modelSlice`, `ModelPicker`, `ScannedModel` (display only), `<Center>` + `<Bounds>` framing                     | Done   |
 | **5b. Paint on the flower** | `prepareGeometry` (merge meshes, bake transforms), `ScannedModel` → `PaintableMesh` with the scan's material + vertex colours; reset paint on switch | Done   |
-| **5c. Make painting fast**  | `three-mesh-bvh`: accelerated raycast + BVH `shapecast` brush selection                                                                              | —      |
-| **5d. Finishing touches**   | Brush size in cm, `ErrorBoundary` for failed loads, `disposeObject` on model switch                                                                  | —      |
+| **5c. Make painting fast**  | `three-mesh-bvh`: accelerated raycast + BVH `shapecast` brush selection                                                                              | Done   |
+| **5d. Finishing touches**   | Brush size in cm, `ErrorBoundary` for failed loads, `disposeObject` on model switch                                                                  | Done   |
 
 5a decisions: the model list lives in `models/config.ts` (not a separate `registry.ts`) because
 `ui/ModelPicker` may only import another feature's `config.ts`/`types.ts`/`lib/` — same pattern
@@ -796,6 +796,32 @@ disposed and `resetAreas` runs). Bug fixed: `placeCursor` now converts the world
 the cursor's parent space — under `<Center>` the parent is translated, which the cube (centred
 at the origin) never revealed. BVH is deliberately left to 5c: until then raycasts check all
 213k triangles on every pointer move. Flower total surface ≈ 1,663 cm² (mostly the cloth).
+
+5c decisions: `createPaintSurface` builds `new MeshBVH(geometry, { indirect: true })` and sets it
+as `geometry.boundsTree` (also `surface.bvh`). **Indirect mode is required:** the default mode
+adds and reorders an index buffer, breaking "face f = vertices 3f..3f+2"; indirect keeps its own
+order and reports original face numbers in raycasts and `shapecast` (verified in the library
+source and by a test comparing accelerated vs plain raycast `faceIndex`). No global prototype
+patching: `PaintableMesh` sets `raycast={acceleratedRaycast}` per mesh, and `shared/lib/setupBvh.ts`
+is not needed. Canvas `raycaster={{ firstHitOnly: true }}` (`viewer/config.ts` `RAYCASTER`).
+`brushSelect` uses `bvh.shapecast` (sphere vs boxes, centroid test per triangle); the brute-force
+version stays as `selectFacesInRadiusBruteForce`, the reference a test compares against.
+`usePaintSurface` clears `boundsTree` on dispose. Measured on the flower (213k triangles):
+pointer hit test 19 ms → 0.07 ms; brush search (2.5 cm, ~12k triangles inside) 1.4 → 0.9 ms;
+BVH build 0.2 s once per load. Scene chunk 1,072 KB.
+
+5d decisions: the store holds `brushRadiusCm` (real-world cm, default 1, slider 0.2–5 cm);
+`usePaintPointer` and `BrushCursor` convert it with `measurement/lib/units`
+`centimetresToModelUnits(cm, metersPerUnit)`, so one cm value is the right size on every model.
+`shared/components/ErrorBoundary` (class component) wraps each model in `ModelStage` with
+`key={model.id}` (resets on switch) and shows `models/components/ModelError` (drei `<Html>`);
+`ModelLoading`/`ModelError` share `ModelMessage.module.css`. `shared/lib/disposeObject.ts`
+`disposeMaterial` frees a material and every `Texture` it references (`material.dispose()` alone
+leaves textures on the GPU); `ScannedModel` uses it on unmount. Disposing the texture shared with
+the cached glTF scene is safe: only the GPU copy is freed and it re-uploads on next use. The
+cached scene itself (CPU memory) is kept on purpose so switching back is instant.
+
+**Step 5 complete (2026-10-01).**
 
 **Concepts.**
 
@@ -822,8 +848,9 @@ at the origin) never revealed. BVH is deliberately left to 5c: until then raycas
 
 **Implementation.**
 
-1. Register `three-mesh-bvh` once (patch `BufferGeometry.prototype.computeBoundsTree` and
-   `Mesh.prototype.raycast = acceleratedRaycast`) in `shared/lib/setupBvh.ts`, imported by `Viewport`.
+1. ~~Register `three-mesh-bvh` globally in `shared/lib/setupBvh.ts`~~ — superseded in 5c: the BVH
+   is built in `createPaintSurface` (indirect mode) and `PaintableMesh` sets
+   `raycast={acceleratedRaycast}` per mesh; no prototype patching.
 2. `prepareGeometry`: take the GLTF scene, collect meshes, apply world matrices, merge with
    `mergeGeometries` if > 1 mesh, then `createPaintSurface` (non-indexed + colors + areas + centroids)
    and `computeBoundsTree()` on the **final** non-indexed geometry.

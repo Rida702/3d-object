@@ -7,7 +7,7 @@
 import { Stats } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import type { ReactNode } from 'react';
-import { CAMERA, DPR, INITIAL_FRAMELOOP } from '../config';
+import { CAMERA, DPR, INITIAL_FRAMELOOP, RAYCASTER } from '../config';
 import { CameraRig } from './CameraRig';
 import { SceneLights } from './SceneLights';
 
@@ -24,7 +24,7 @@ type ViewportProps = {
  */
 export function Viewport({ children }: ViewportProps) {
   return (
-    <Canvas camera={CAMERA} dpr={DPR} frameloop={INITIAL_FRAMELOOP}>
+    <Canvas camera={CAMERA} dpr={DPR} frameloop={INITIAL_FRAMELOOP} raycaster={RAYCASTER}>
       <SceneLights />
       <CameraRig />
       {children}

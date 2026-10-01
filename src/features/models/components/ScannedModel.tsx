@@ -8,6 +8,7 @@
 import { useGLTF } from '@react-three/drei';
 import { useEffect, useMemo } from 'react';
 import { PaintableMesh } from '@/features/painting/components/PaintableMesh';
+import { disposeMaterial } from '@/shared/lib/disposeObject';
 import { prepareModel } from '../lib/prepareGeometry';
 
 type ScannedModelProps = {
@@ -27,12 +28,13 @@ export function ScannedModel({ url, unitScale }: ScannedModelProps) {
   const { scene } = useGLTF(url);
   const prepared = useMemo(() => prepareModel(scene), [scene]);
 
-  // The merged geometry and material are copies we created, so we free them ourselves.
-  // (The texture is shared with the cached scene and is left alone.)
+  // Free GPU memory when this model is switched away from. The geometry and material are our
+  // copies. The texture is shared with the cached scene, but disposing only frees its GPU copy;
+  // the image stays cached, so switching back simply uploads it again.
   useEffect(
     () => () => {
       prepared.geometry.dispose();
-      prepared.material.dispose();
+      disposeMaterial(prepared.material);
     },
     [prepared],
   );

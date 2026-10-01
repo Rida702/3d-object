@@ -6,6 +6,7 @@
  */
 import type { Ref } from 'react';
 import type { Mesh } from 'three';
+import { centimetresToModelUnits } from '@/features/measurement/lib/units';
 import { selectIsPainting } from '@/store/paintSlice';
 import { useAppStore } from '@/store/useAppStore';
 import { CURSOR } from '../config';
@@ -26,12 +27,15 @@ const ignoreRaycast = () => {};
  */
 export function BrushCursor({ ref }: BrushCursorProps) {
   const isPainting = useAppStore(selectIsPainting);
-  const brushRadius = useAppStore((state) => state.brushRadius);
+  const brushRadiusCm = useAppStore((state) => state.brushRadiusCm);
+  const metersPerUnit = useAppStore((state) => state.metersPerUnit);
+  // Derived during render: the same cm radius is a different number of units on each model.
+  const radius = centimetresToModelUnits(brushRadiusCm, metersPerUnit);
 
   return (
     <group visible={isPainting}>
       {/* Ring geometry has outer radius 1, so scaling by the brush radius sizes it exactly. */}
-      <mesh ref={ref} visible={false} scale={brushRadius} raycast={ignoreRaycast}>
+      <mesh ref={ref} visible={false} scale={radius} raycast={ignoreRaycast}>
         <ringGeometry args={[CURSOR.innerRatio, 1, CURSOR.segments]} />
         <meshBasicMaterial color={CURSOR.color} transparent opacity={0.9} depthWrite={false} />
       </mesh>

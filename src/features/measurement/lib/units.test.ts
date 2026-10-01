@@ -3,7 +3,17 @@
  * @description Tests unit conversion and area/percent formatting.
  */
 import { describe, expect, it } from 'vitest';
-import { formatArea, formatPercent, toSquareMeters } from './units';
+import { centimetresToModelUnits, formatArea, formatPercent, toSquareMeters } from './units';
+
+describe('centimetresToModelUnits', () => {
+  it('converts 1 cm on the 10 cm cube (0.1 m per unit) to 0.1 units', () => {
+    expect(centimetresToModelUnits(1, 0.1)).toBeCloseTo(0.1, 10);
+  });
+
+  it('converts 1 cm on the flower scan (0.164279 m per unit) to about 0.061 units', () => {
+    expect(centimetresToModelUnits(1, 0.164279)).toBeCloseTo(0.06087, 5);
+  });
+});
 
 describe('toSquareMeters', () => {
   it('scales area by the square of metres-per-unit', () => {

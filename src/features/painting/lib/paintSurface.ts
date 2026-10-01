@@ -6,6 +6,7 @@
  */
 import { BufferAttribute, DynamicDrawUsage } from 'three';
 import type { BufferGeometry, Color, InterleavedBufferAttribute } from 'three';
+import { MeshBVH } from 'three-mesh-bvh';
 import { sumAreas } from '@/features/measurement/lib/surfaceArea';
 import { computeFaceAreas } from '@/features/measurement/lib/triangleArea';
 import type { FaceSelection, PaintSurface } from '../types';
@@ -16,7 +17,7 @@ const FLOATS_PER_FACE = 9;
 
 /**
  * Prepares a geometry for painting: non-indexed copy, per-vertex colour attribute filled with
- * the base colour, face centroids and areas, an empty painted mask and scratch selections.
+ * the base colour, face centroids and areas, a BVH, an empty painted mask and scratch selections.
  * The source geometry is not modified.
  *
  * @param source - Any triangle geometry (indexed or not)
@@ -34,8 +35,16 @@ export function createPaintSurface(source: BufferGeometry, baseColor: Color): Pa
   // area math in its own feature is worth more than fusing it into the centroid loop.
   const faceAreas = computeFaceAreas(positions, faceCount);
 
+  // Spatial index for fast raycasts and brush queries. INDIRECT mode is essential: the default
+  // mode adds and reorders an index buffer, which would break "face f = vertices 3f..3f+2"
+  // that the colour buffer and mask rely on. Indirect keeps its own order and reports our
+  // original face numbers. Assigning boundsTree makes acceleratedRaycast use it.
+  const bvh = new MeshBVH(geometry, { indirect: true });
+  geometry.boundsTree = bvh;
+
   return {
     geometry,
+    bvh,
     colorAttribute,
     faceCount,
     faceCentroids: computeFaceCentroids(positions, faceCount),

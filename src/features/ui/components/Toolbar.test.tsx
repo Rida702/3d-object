@@ -39,10 +39,10 @@ describe('Toolbar', () => {
     render(<Toolbar />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Colour #3b6cf6' }));
-    fireEvent.change(screen.getByLabelText('Brush size'), { target: { value: '0.25' } });
+    fireEvent.change(screen.getByLabelText('Brush size (radius)'), { target: { value: '2.5' } });
 
     expect(useAppStore.getState().color).toBe('#3b6cf6');
-    expect(useAppStore.getState().brushRadius).toBe(0.25);
-    expect(screen.getByText('0.25 units')).toBeInTheDocument();
+    expect(useAppStore.getState().brushRadiusCm).toBe(2.5);
+    expect(screen.getByText('2.5 cm')).toBeInTheDocument();
   });
 });

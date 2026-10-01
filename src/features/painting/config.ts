@@ -5,15 +5,19 @@
  */
 import type { PaintToolId } from './types';
 
-/** Initial store values for painting. Brush radius is in model units (the cube is 1 wide). */
-export const PAINT_DEFAULTS: { toolId: PaintToolId; color: string; brushRadius: number } = {
+/**
+ * Initial store values for painting. The brush radius is in real-world CENTIMETRES, so it means
+ * the same size on every model; it is converted to model units (via the model's metres per
+ * unit) only when painting.
+ */
+export const PAINT_DEFAULTS: { toolId: PaintToolId; color: string; brushRadiusCm: number } = {
   toolId: 'brush',
   color: '#e4572e',
-  brushRadius: 0.1,
+  brushRadiusCm: 1,
 };
 
-/** Brush-size slider range, in model units. */
-export const BRUSH_RADIUS = { min: 0.02, max: 0.4, step: 0.01 } as const;
+/** Brush-size slider range, in centimetres (radius). */
+export const BRUSH_RADIUS_CM = { min: 0.2, max: 5, step: 0.1 } as const;
 
 /** Vertex colour of unpainted faces. White means "no tint" over the material or texture. */
 export const PAINT_BASE_COLOR = '#ffffff';

@@ -5,6 +5,7 @@
  *   (CLAUDE.md 4.2). Types only — no runtime code.
  */
 import type { BufferAttribute, BufferGeometry, Color, Vector3 } from 'three';
+import type { MeshBVH } from 'three-mesh-bvh';
 
 /** Identifiers of the available paint tools. Add a member here when adding a tool. */
 export type PaintToolId = 'brush' | 'eraser';
@@ -22,6 +23,12 @@ export interface FaceSelection {
 export interface PaintSurface {
   /** Non-indexed copy of the source geometry: face `f` owns vertices 3f, 3f+1, 3f+2. */
   geometry: BufferGeometry;
+  /**
+   * Bounding volume hierarchy over the geometry (also set as geometry.boundsTree), built in
+   * indirect mode so face numbers are never reordered. Makes raycasts and brush queries
+   * visit a few dozen boxes instead of every triangle.
+   */
+  bvh: MeshBVH;
   /** Per-vertex RGB (linear colour space) multiplied with the material colour/texture. */
   colorAttribute: BufferAttribute;
   faceCount: number;

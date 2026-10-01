@@ -1,11 +1,23 @@
 /**
  * @file units.ts
- * @description Converts model-space areas to real-world units and formats them for display.
- *   three.js is unitless: each model declares how many metres one model unit is. Area scales
- *   with the SQUARE of that factor (a 2× bigger object has 4× the surface).
+ * @description Converts between model units and real-world units, and formats them for display.
+ *   three.js is unitless: each model declares how many metres one model unit is. Lengths scale
+ *   with that factor; areas with its SQUARE (a 2× bigger object has 4× the surface).
  */
 
 const SQUARE_CM_PER_SQUARE_M = 10_000;
+const CM_PER_M = 100;
+
+/**
+ * Converts a real-world length in centimetres to model units (e.g. a brush radius).
+ *
+ * @param centimetres - Length in cm
+ * @param metersPerUnit - Metres per model unit (model unit scale × mesh world scale)
+ * @returns Length in model units
+ */
+export function centimetresToModelUnits(centimetres: number, metersPerUnit: number): number {
+  return centimetres / CM_PER_M / metersPerUnit;
+}
 
 // Fixed locale so output is identical in every browser and in tests.
 const areaFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });

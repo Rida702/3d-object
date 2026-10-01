@@ -23,7 +23,14 @@ export function usePaintSurface(geometry: BufferGeometry): PaintSurface {
   const surface = useMemo(() => createPaintSurface(geometry, BASE_COLOR), [geometry]);
 
   // The surface owns a geometry copy created outside JSX, so R3F won't dispose it for us.
-  useEffect(() => () => surface.geometry.dispose(), [surface]);
+  // Dropping boundsTree lets the (large) BVH be garbage-collected with the surface.
+  useEffect(
+    () => () => {
+      surface.geometry.boundsTree = undefined;
+      surface.geometry.dispose();
+    },
+    [surface],
+  );
 
   return surface;
 }

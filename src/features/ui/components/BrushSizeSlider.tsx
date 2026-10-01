@@ -1,36 +1,36 @@
 /**
  * @file BrushSizeSlider.tsx
- * @description Brush radius control. Shown in model units for now (the cube is 1 unit wide);
- *   Step 5 converts to centimetres using each model's unit scale.
+ * @description Brush radius control in real-world centimetres, so a "1.0 cm" brush is the same
+ *   size on the 10 cm cube and on a scan. Painting converts cm to each model's own units.
  */
-import { BRUSH_RADIUS } from '@/features/painting/config';
+import { BRUSH_RADIUS_CM } from '@/features/painting/config';
 import { Slider } from '@/shared/components/Slider';
 import { useAppStore } from '@/store/useAppStore';
 
 /**
- * Formats a radius in model units for display.
- * @param radius - Radius in model units
- * @returns e.g. "0.10 units"
+ * Formats a brush radius for display.
+ * @param radiusCm - Radius in centimetres
+ * @returns e.g. "1.0 cm"
  */
-function formatRadius(radius: number): string {
-  return `${radius.toFixed(2)} units`;
+function formatRadius(radiusCm: number): string {
+  return `${radiusCm.toFixed(1)} cm`;
 }
 
 /**
  * Renders the brush-size slider bound to the store.
  */
 export function BrushSizeSlider() {
-  const brushRadius = useAppStore((state) => state.brushRadius);
-  const setBrushRadius = useAppStore((state) => state.setBrushRadius);
+  const brushRadiusCm = useAppStore((state) => state.brushRadiusCm);
+  const setBrushRadiusCm = useAppStore((state) => state.setBrushRadiusCm);
 
   return (
     <Slider
-      label="Brush size"
-      value={brushRadius}
-      min={BRUSH_RADIUS.min}
-      max={BRUSH_RADIUS.max}
-      step={BRUSH_RADIUS.step}
-      onChange={setBrushRadius}
+      label="Brush size (radius)"
+      value={brushRadiusCm}
+      min={BRUSH_RADIUS_CM.min}
+      max={BRUSH_RADIUS_CM.max}
+      step={BRUSH_RADIUS_CM.step}
+      onChange={setBrushRadiusCm}
       formatValue={formatRadius}
     />
   );

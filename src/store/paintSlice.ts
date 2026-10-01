@@ -14,15 +14,15 @@ export interface PaintSlice {
   activeToolId: PaintToolId;
   /** Paint colour as an sRGB hex string, e.g. "#e4572e". */
   color: string;
-  /** Brush radius in model units. */
-  brushRadius: number;
+  /** Brush radius in real-world centimetres (same size on every model). */
+  brushRadiusCm: number;
   /** Paint mode toggled on from the toolbar. */
   isPaintMode: boolean;
   /** Paint mode held on temporarily (Shift key). */
   isPaintModeHeld: boolean;
   setActiveTool: (id: PaintToolId) => void;
   setColor: (color: string) => void;
-  setBrushRadius: (radius: number) => void;
+  setBrushRadiusCm: (radiusCm: number) => void;
   togglePaintMode: () => void;
   setPaintModeHeld: (isHeld: boolean) => void;
 }
@@ -36,12 +36,12 @@ export interface PaintSlice {
 export const createPaintSlice: StateCreator<AppState, [], [], PaintSlice> = (set) => ({
   activeToolId: PAINT_DEFAULTS.toolId,
   color: PAINT_DEFAULTS.color,
-  brushRadius: PAINT_DEFAULTS.brushRadius,
+  brushRadiusCm: PAINT_DEFAULTS.brushRadiusCm,
   isPaintMode: false,
   isPaintModeHeld: false,
   setActiveTool: (activeToolId) => set({ activeToolId }),
   setColor: (color) => set({ color }),
-  setBrushRadius: (brushRadius) => set({ brushRadius }),
+  setBrushRadiusCm: (brushRadiusCm) => set({ brushRadiusCm }),
   togglePaintMode: () => set((state) => ({ isPaintMode: !state.isPaintMode })),
   setPaintModeHeld: (isPaintModeHeld) => set({ isPaintModeHeld }),
 });

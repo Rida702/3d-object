@@ -1,8 +1,18 @@
 /**
  * @file paintSurface.test.ts
- * @description Tests for building paint surfaces and recolouring faces.
+ * @description Tests for building paint surfaces (incl. the BVH) and recolouring faces.
  */
-import { BoxGeometry, BufferAttribute, BufferGeometry, Color } from 'three';
+import {
+  BoxGeometry,
+  BufferAttribute,
+  BufferGeometry,
+  Color,
+  Mesh,
+  Raycaster,
+  SphereGeometry,
+  Vector3,
+} from 'three';
+import { acceleratedRaycast } from 'three-mesh-bvh';
 import { describe, expect, it } from 'vitest';
 import { createFaceSelection } from './faceMask';
 import { createPaintSurface, recolorFaces } from './paintSurface';
@@ -95,5 +105,33 @@ describe('recolorFaces', () => {
 
     expect(surface.colorAttribute.updateRanges).toEqual([]);
     expect(surface.colorAttribute.version).toBe(0);
+  });
+});
+
+describe('BVH', () => {
+  it('builds a BVH without adding or reordering an index (face f = vertices 3f..3f+2)', () => {
+    const surface = createPaintSurface(new SphereGeometry(1, 16, 16), WHITE);
+
+    expect(surface.geometry.boundsTree).toBe(surface.bvh);
+    expect(surface.geometry.index).toBeNull();
+  });
+
+  it('accelerated raycasts report the same face numbers as plain three.js raycasts', () => {
+    const surface = createPaintSurface(new SphereGeometry(1, 32, 32), WHITE);
+    const plainMesh = new Mesh(surface.geometry);
+    const fastMesh = new Mesh(surface.geometry);
+    fastMesh.raycast = acceleratedRaycast;
+    const raycaster = new Raycaster();
+
+    for (let i = 0; i < 20; i++) {
+      // Rays from points around the sphere, aimed at the centre.
+      const origin = new Vector3(Math.cos(i), Math.sin(i * 1.3), Math.sin(i)).setLength(5);
+      raycaster.set(origin, origin.clone().negate().normalize());
+
+      const plainHit = raycaster.intersectObject(plainMesh)[0];
+      const fastHit = raycaster.intersectObject(fastMesh)[0];
+
+      expect(fastHit?.faceIndex).toBe(plainHit?.faceIndex);
+    }
   });
 });

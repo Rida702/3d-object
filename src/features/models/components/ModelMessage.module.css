@@ -1,0 +1,18 @@
+/*
+ * ModelMessage.module.css — muted text shown over the canvas while a model loads or fails.
+ */
+
+.message {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+/* Error text is longer: let it wrap into a readable centred block. */
+.error {
+  width: 260px;
+  white-space: normal;
+  text-align: center;
+  color: var(--color-text);
+}

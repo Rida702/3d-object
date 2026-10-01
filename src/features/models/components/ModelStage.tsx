@@ -7,9 +7,11 @@
  */
 import { Bounds, Center, useGLTF } from '@react-three/drei';
 import { Suspense } from 'react';
+import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { useAppStore } from '@/store/useAppStore';
 import { CUBE_MODEL, FRAMING_MARGIN, MODELS } from '../config';
 import type { ModelDefinition } from '../types';
+import { ModelError } from './ModelError';
 import { ModelLoading } from './ModelLoading';
 import { ProceduralCube } from './ProceduralCube';
 import { ScannedModel } from './ScannedModel';
@@ -39,19 +41,22 @@ function ModelContent({ model }: ModelContentProps) {
 
 /**
  * Renders the currently selected model, centred and framed by the camera.
- * `key` remounts Bounds per model, so the camera re-frames on every switch.
+ * `key={model.id}` remounts everything per model: the camera re-frames on every switch, and a
+ * model that failed to load doesn't keep showing its error after picking another one.
  */
 export function ModelStage() {
   const selectedModelId = useAppStore((state) => state.selectedModelId);
   const model = MODELS.find((candidate) => candidate.id === selectedModelId) ?? CUBE_MODEL;
 
   return (
-    <Suspense fallback={<ModelLoading />}>
-      <Bounds key={model.id} fit clip observe margin={FRAMING_MARGIN}>
-        <Center>
-          <ModelContent model={model} />
-        </Center>
-      </Bounds>
-    </Suspense>
+    <ErrorBoundary key={model.id} fallback={<ModelError />}>
+      <Suspense fallback={<ModelLoading />}>
+        <Bounds fit clip observe margin={FRAMING_MARGIN}>
+          <Center>
+            <ModelContent model={model} />
+          </Center>
+        </Bounds>
+      </Suspense>
+    </ErrorBoundary>
   );
 }

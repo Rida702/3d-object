@@ -8,6 +8,7 @@
 import { useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useRef, type RefObject } from 'react';
 import { Color, Vector3, type Mesh, type Object3D } from 'three';
+import { centimetresToModelUnits } from '@/features/measurement/lib/units';
 import { selectIsPainting } from '@/store/paintSlice';
 import { useAppStore } from '@/store/useAppStore';
 import { CURSOR } from '../config';
@@ -39,12 +40,13 @@ const lookTarget = new Vector3();
 
 /**
  * Reads the current paint settings from the store into the shared settings object.
+ * The brush radius is stored in cm and converted to this model's units here.
  * @returns The refreshed settings
  */
 function readSettings(): PaintSettings {
   const state = useAppStore.getState();
   settings.color.set(state.color); // Color.set converts the sRGB hex to linear
-  settings.radius = state.brushRadius;
+  settings.radius = centimetresToModelUnits(state.brushRadiusCm, state.metersPerUnit);
   return settings;
 }
 

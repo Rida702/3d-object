@@ -7,6 +7,7 @@
  */
 import { useRef } from 'react';
 import type { BufferGeometry, Material, Mesh } from 'three';
+import { acceleratedRaycast } from 'three-mesh-bvh';
 import { useAreaSync } from '../hooks/useAreaSync';
 import { usePaintModeShortcut } from '../hooks/usePaintModeShortcut';
 import { usePaintPointer } from '../hooks/usePaintPointer';
@@ -56,7 +57,15 @@ export function PaintableMesh({
 
   return (
     <>
-      <mesh ref={meshRef} geometry={surface.geometry} material={material} {...handlers}>
+      {/* acceleratedRaycast uses geometry.boundsTree (the BVH): pointer hit tests visit a few
+          boxes instead of every triangle. Set per mesh, not by patching three.js globally. */}
+      <mesh
+        ref={meshRef}
+        geometry={surface.geometry}
+        material={material}
+        raycast={acceleratedRaycast}
+        {...handlers}
+      >
         {/* vertexColors: without it the per-vertex paint colours are ignored. */}
         {!material && <meshStandardMaterial color={materialColor} vertexColors />}
       </mesh>
